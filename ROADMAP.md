@@ -10,7 +10,7 @@ The single source of truth for what ships next, what's planned, and what's been 
 
 > **Restored 2026-08-17.** This file was written on 2026-05-08, deleted in commit `74fa640`,
 > and recovered from `git show b30865f:ROADMAP.md`. It has been re-scoped for the ownership
-> handover and the Android-first platform switch — see §8. Every `[x]` below was verified
+> handover and the move to equal Android + iOS support — see §9. Every `[x]` below was verified
 > against the code on 2026-08-17, not taken on trust from the old plan.
 
 ---
@@ -18,6 +18,8 @@ The single source of truth for what ships next, what's planned, and what's been 
 ## 0. Where we are today
 
 - **Owner:** Kevin (`kevinpatildxd`), since 2026-08-17. Developed on Windows.
+- **Targets:** Android and iOS, equally. Android is being brought up first because it's the
+  device on hand; the iOS pass follows. See §1.
 - **Current release:** v1.1.0 tagged. **The code is ahead of the version number** — a `v1.2`
   commit and a full redesign shipped without a version bump. See §3.
 - **Stack:** Expo ~54 + React Native 0.81 + React 19 + Expo Router + AsyncStorage (no backend)
@@ -28,9 +30,9 @@ The single source of truth for what ships next, what's planned, and what's been 
 - **Storage:** local-only AsyncStorage with a `schemaVersion` migration runner (`src/utils/migrate.ts`).
   JSON export from Settings. Android Auto Backup wired. No iOS iCloud backup yet, no sync.
 
-**The one thing blocking everything else:** the app has never been built or launched on Android.
-All the Android work so far is code and config, verified only as far as `expo prebuild` and
-`tsc`. See §2.
+**The next thing to do:** the app has never been built or launched on Android. All the Android
+work so far is code and config, verified only as far as `expo prebuild` and `tsc`. Once that's
+working, the iOS pass is the other half of the same job. See §2.
 
 ---
 
@@ -47,14 +49,19 @@ Three things must always be true:
 2. **Zero-friction logging** — tap counts more than typing.
 3. **Local-first, exportable** — your data is yours, in JSON, anytime.
 
-**Platform priority (changed 2026-08-17): Android is the daily driver.** iOS stays a supported
-target and every release builds for both, but Android is where correctness is proven first. The
+**Platforms (changed 2026-08-17): Android and iOS are equal targets.** Neither outranks the
+other; a feature is not done until it works on both. This replaces the 2026-05-08 "iOS-first,
+Android best-effort" call — that was a ranking, this is not.
+
+What *is* true is a **sequencing** constraint, not a priority one: there's no iOS device on hand
+right now, so Android gets built and tested first and iOS follows once Android is working. The
 practical consequences:
 
-- A feature is not done until it works on Android.
-- iOS-only platform wins (iCloud, HealthKit, WidgetKit, Dynamic Island, Face ID) drop in
-  priority and each needs an Android answer before it's scheduled — see §4.
-- iOS builds happen in the EAS cloud, not locally, until there's a Mac in the loop.
+- Build and verify on Android now; do the iOS pass when the Android side is done.
+- Platform-specific work (iCloud vs Auto Backup, HealthKit vs Health Connect) is scheduled in
+  whichever order the available hardware allows — both halves still ship. See §4.
+- iOS builds go through the EAS cloud rather than a local Xcode, until there's a Mac in the loop.
+- Nothing gets designed as Android-only. Every `Platform.OS` branch needs both arms filled in.
 
 ---
 
@@ -100,10 +107,12 @@ The 2026-05-08 plan had 7 blocks. **Six are already built** (verified in code 20
 | 6 | **Auto-backup on background** | [~] | **Android done** via `plugins/withAndroidAutoBackup.js`; **iOS iCloud not built** |
 | 7 | Pomodoro cleanup + Growth merge | [~] | Growth merge done (`growth.tsx` + `growth/` panels); `app/timer.tsx` is now unreachable dead code |
 
-So v1.2 is **functionally complete on Android**. The remaining slices:
+Five of seven are done on both platforms. Block 6 is the one that is genuinely half-built —
+Android has auto-backup, iOS does not — so **v1.2 is complete on Android and one feature short
+on iOS**. The remaining slices:
 
 - [ ] 🟠 iOS iCloud auto-backup — JSON to `iCloud Drive/LifeOS/backup-latest.json` on background,
-      auto-restore on fresh install, no UI. Only closes an iOS-side gap; Android already has parity.
+      auto-restore on fresh install, no UI. Still owed; it closes the last v1.2 gap on iOS.
 - [ ] 🟠 Decide `app/timer.tsx` — delete it or wire it back up (§3)
 
 ---
@@ -129,8 +138,9 @@ So v1.2 is **functionally complete on Android**. The remaining slices:
 
 ## 4. Platform parity
 
-New section, 2026-08-17. Tracks where the two targets diverge so "works on my phone" stops
-meaning "works".
+New section, 2026-08-17. Tracks where the two equal targets diverge, so "works on my phone"
+stops meaning "works". Gaps run in both directions — the Android list is longer only because
+Android is the half being built first.
 
 ### Android gaps
 
@@ -144,15 +154,28 @@ meaning "works".
 - [ ] 🟡 Confirm edge-to-edge rendering and the status/navigation bars look right — Expo 54
       changed Android defaults and the layout was tuned on iOS.
 
-### iOS-only items — need an Android answer before scheduling
+### iOS gaps
 
-| Item | Android equivalent |
-|---|---|
-| iCloud auto-backup | Android Auto Backup — **already shipped**, so this is iOS catching up |
-| HealthKit | Health Connect (different API, similar scope) |
-| WidgetKit home widgets | Android app widgets / Glance |
-| Face ID lock | `expo-local-authentication` covers both |
-| Dynamic Island | no equivalent — permanently parked |
+- [ ] 🔴 **No iOS device to test on.** Everything below is unverifiable until there's a phone or
+      a simulator in the loop. Build via `npm run build:preview` (EAS) when it's time.
+- [ ] 🟠 iCloud auto-backup — the Android half shipped, so iOS is the side currently missing
+      data-loss protection *(§2.3)*
+- [ ] 🟡 Re-verify the alarm music picker on iOS after the Android-conditional change — Apple
+      Music must still be offered there.
+
+### Features that need both halves
+
+Neither column leads. Whichever is built first, the other is owed before the feature counts
+as done.
+
+| Feature | iOS | Android |
+|---|---|---|
+| Silent auto-backup | iCloud Drive JSON | Auto Backup — **shipped** |
+| Health data | HealthKit | Health Connect |
+| Home-screen widgets | WidgetKit | App widgets / Glance |
+| Biometric app lock | `expo-local-authentication` — one API covers both | |
+| Exact / reliable alarms | works today | needs a strategy — see above |
+| Dynamic Island | no Android equivalent — permanently parked | |
 
 ---
 
@@ -181,8 +204,8 @@ day-to-day commands.
 
 ## 6. Full backlog by area
 
-Unchanged from 2026-05-08 except where noted. Re-rank against §1's Android-first priority
-before pulling anything into a release.
+Unchanged from 2026-05-08 except where noted. Anything platform-specific needs both halves
+planned before it's pulled into a release — see §4.
 
 ### 🗓 Calendar & Schedule
 - [x] 🔴 Time picker wheel *(done)*
@@ -241,8 +264,8 @@ before pulling anything into a release.
 - [ ] 🟡 Water reminder push
 - [ ] 🟡 Meal nutrition — calorie / macro tracking
 - [ ] 🟡 Diet deviation insights
-- [ ] 🔵 **Health Connect** integration (steps / sleep / workouts / weight) — was "Apple Health";
-      Android now leads, HealthKit follows
+- [ ] 🔵 Health integration (steps / sleep / workouts / weight) — HealthKit on iOS, Health
+      Connect on Android. Both halves, in whichever order the hardware allows.
 - [ ] 🔵 Running / walking GPS route logging
 
 ### 🎯 Growth (Learning + Skills, merged)
@@ -417,11 +440,12 @@ Conscious "not now" calls. Move them up if context changes.
 | 2026-05-08 | Tracking in this file, not GitHub Issues | Low ceremony; matches the commit-driven flow. |
 | 2026-05-08 | Two-channel release model (daily OTA + monthly stable) | Fast loop, with a stable marker. |
 | **2026-08-17** | **Ownership → Kevin (`kevinpatildxd`)** | Handover. The "Audience = Yaksi" framing is retired. |
-| **2026-08-17** | **Android-first, iOS maintained — every build targets both** | Android is the daily driver and the dev machine is Windows. Reverses the 2026-05-08 iOS-first call. |
+| **2026-08-17** | **Android and iOS are equal targets — neither is "first"** | Retires the 2026-05-08 "iOS-first, Android best-effort" ranking. A feature is done when it works on both. |
+| **2026-08-17** | Android is built and tested before iOS — sequencing, not priority | No iOS device on hand. iOS follows once the Android side works; it is not deprioritised. |
 | **2026-08-17** | **No macOS-only tooling** | Dev scripts are plain Node ESM in `scripts/`; the three `.sh` files are gone. |
 | **2026-08-17** | **iOS builds go through EAS cloud** | No Mac available. Not a reason to drop iOS support. |
 | **2026-08-17** | **No `Co-Authored-By` trailers; commits authored as `kevinpatildxd`** | Enforced by `.githooks/commit-msg`. |
-| **2026-08-17** | **iCloud backup demoted from 🔴 to 🟠** | Android Auto Backup already closes the data-loss risk on the platform actually in daily use. |
+| **2026-08-17** | iCloud backup stays 🟠 rather than 🔴 | Not a demotion of iOS — the risk it guards against is simply not testable until there's an iOS device. It is owed, and §4 tracks it. |
 | **2026-08-17** | Design pass marked done | The `aac82a3` redesign delivered what the 2026-05-08 "deferred" entry described. |
 
 ---
