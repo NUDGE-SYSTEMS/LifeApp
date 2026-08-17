@@ -3,10 +3,20 @@
   "version": "1.1.0",
   "main": "expo-router/entry",
   "scripts": {
-    "start": "expo start",
-    "android": "expo run:android",
-    "ios": "expo run:ios",
-    "web": "expo start --web"
+    "prepare": "node scripts/setup-hooks.mjs",
+    "start": "node scripts/dev.mjs",
+    "dev": "node scripts/dev.mjs",
+    "android": "node scripts/run.mjs android",
+    "android:release": "node scripts/run.mjs android --release",
+    "ios": "node scripts/run.mjs ios",
+    "ios:release": "node scripts/run.mjs ios --release",
+    "web": "expo start --web",
+    "doctor": "node scripts/doctor.mjs",
+    "prebuild": "expo prebuild --platform all",
+    "prebuild:clean": "expo prebuild --platform all --clean",
+    "build:preview": "eas build --platform all --profile preview",
+    "build:production": "eas build --platform all --profile production",
+    "update": "eas update --branch production"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
@@ -22,6 +32,7 @@
     "expo-notifications": "~0.32.16",
     "expo-router": "~6.0.23",
     "expo-status-bar": "~3.0.9",
+    "expo-system-ui": "~6.0.9",
     "expo-updates": "~29.0.17",
     "react": "19.1.0",
     "react-dom": "19.1.0",

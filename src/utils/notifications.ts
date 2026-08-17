@@ -1,7 +1,54 @@
+import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { getData, setData } from './storage';
 import { DEFAULT_REMINDER_SETTINGS } from '../constants/theme';
+
+// ── Android notification channels ────────────────────────────────────────────
+// Android 8+ routes every notification through a channel. Without one, expo falls
+// back to a low-importance default channel: alarms would arrive silent and with no
+// heads-up banner, which makes the Alarms tab useless. iOS ignores channelId.
+
+export const CHANNEL_ALARMS = 'alarms';
+export const CHANNEL_REMINDERS = 'reminders';
+
+let channelsReady: Promise<void> | null = null;
+
+/** Create the channels once per app launch. Safe to call from anywhere; no-op on iOS. */
+export function ensureAndroidChannels(): Promise<void> {
+  if (Platform.OS !== 'android') return Promise.resolve();
+  if (!channelsReady) {
+    channelsReady = (async () => {
+      await Notifications.setNotificationChannelAsync(CHANNEL_ALARMS, {
+        name: 'Alarms',
+        importance: Notifications.AndroidImportance.MAX,
+        sound: 'default',
+        vibrationPattern: [0, 400, 200, 400],
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        bypassDnd: true,
+        enableVibrate: true,
+        showBadge: false,
+      });
+      await Notifications.setNotificationChannelAsync(CHANNEL_REMINDERS, {
+        name: 'Daily reminders',
+        importance: Notifications.AndroidImportance.HIGH,
+        sound: 'default',
+        vibrationPattern: [0, 250],
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        enableVibrate: true,
+        showBadge: false,
+      });
+    })().catch(e => {
+      channelsReady = null; // let a later call retry
+      console.warn('Notification channel setup failed:', e);
+    });
+  }
+  return channelsReady;
+}
+
+/** Spread into a trigger to route it to a channel. Empty on iOS, which has no channels. */
+const androidChannel = (channelId: string) =>
+  (Platform.OS === 'android' ? { channelId } : null);
 
 // ── Alarm helpers ────────────────────────────────────────────────────────────
 
@@ -9,16 +56,21 @@ export async function scheduleAlarmNotif(alarm: {
   id: string; label: string; timeH: number; timeM: number;
   days: number[]; musicService: string; musicUri: string; musicLabel: string;
 }): Promise<string[]> {
+  await ensureAndroidChannels();
   const { timeH: hour, timeM: minute, days, label, musicService, musicUri, musicLabel } = alarm;
   const ids: string[] = [];
+  const serviceName = musicService === 'spotify' ? 'Spotify'
+    : musicService === 'apple_music' ? 'Apple Music'
+    : 'music';
   const body = musicLabel
-    ? `Tap to open ${musicService === 'spotify' ? 'Spotify' : 'Apple Music'} · ${musicLabel}`
+    ? `Tap to open ${serviceName} · ${musicLabel}`
     : 'Your alarm is ringing — tap to dismiss';
 
   const content = {
     title: label || 'Alarm',
     body,
     sound: true,
+    priority: Notifications.AndroidNotificationPriority.MAX,
     data: { type: 'alarm', musicUri, musicService },
   };
 
@@ -31,14 +83,23 @@ export async function scheduleAlarmNotif(alarm: {
     const seconds = Math.max(Math.floor((target.getTime() - now.getTime()) / 1000), 1);
     const id = await Notifications.scheduleNotificationAsync({
       content,
-      trigger: { type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, seconds, repeats: false },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+        seconds,
+        repeats: false,
+        ...androidChannel(CHANNEL_ALARMS),
+      },
     });
     ids.push(id);
   } else {
     for (const weekday of days) {
       const id = await Notifications.scheduleNotificationAsync({
         content,
-        trigger: { type: Notifications.SchedulableTriggerInputTypes.WEEKLY, weekday, hour, minute },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+          weekday, hour, minute,
+          ...androidChannel(CHANNEL_ALARMS),
+        },
       });
       ids.push(id);
     }
@@ -76,6 +137,9 @@ Notifications.setNotificationHandler({
 
 export async function requestPermissions(): Promise<boolean> {
   if (!Device.isDevice) return false;
+  // Channels must exist before the Android 13+ POST_NOTIFICATIONS prompt so the
+  // system settings page shows real categories instead of an empty list.
+  await ensureAndroidChannels();
   const { status: existing } = await Notifications.getPermissionsAsync();
   if (existing === 'granted') return true;
   const { status } = await Notifications.requestPermissionsAsync();
@@ -85,7 +149,12 @@ export async function requestPermissions(): Promise<boolean> {
 async function daily(h: number, m: number, title: string, body: string) {
   await Notifications.scheduleNotificationAsync({
     content: { title, body, sound: true },
-    trigger: { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour: h, minute: m },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour: h,
+      minute: m,
+      ...androidChannel(CHANNEL_REMINDERS),
+    },
   });
 }
 
@@ -186,6 +255,7 @@ export async function sendTestNotification(): Promise<void> {
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
       seconds: 2,
+      ...androidChannel(CHANNEL_REMINDERS),
     },
   });
 }

@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 import { Colors } from '../src/constants/theme';
 import { runMigrations } from '../src/utils/migrate';
+import { ensureAndroidChannels } from '../src/utils/notifications';
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
@@ -15,6 +16,10 @@ export default function RootLayout() {
       .catch(e => console.warn('Migration failed:', e))
       .finally(() => setReady(true));
   }, []);
+
+  // Android needs its notification channels to exist before anything is scheduled.
+  // No-op on iOS.
+  useEffect(() => { ensureAndroidChannels(); }, []);
 
   useEffect(() => {
     // When user taps an alarm notification → open music deep link

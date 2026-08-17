@@ -1,0 +1,55 @@
+#!/bin/sh
+# commit-msg — reject commits that violate this repo's authorship rules.
+#
+# 1. No co-author trailers. Every commit here is Kevin's; agent/pair-programming
+#    attribution lines (Co-Authored-By) must never end up in the history.
+# 2. The commit must be authored and committed by kevinpatildxd.
+#
+# Enabled via `git config core.hooksPath .githooks` (see scripts/setup-hooks.mjs).
+
+MSG_FILE="$1"
+EXPECTED_NAME="kevinpatildxd"
+fail=0
+
+err() {
+  # Print to stderr so it survives being piped.
+  printf '%s\n' "$1" >&2
+}
+
+# ── 1. Block co-author trailers ──────────────────────────────────────────────
+# Matches "Co-Authored-By:", "Co-authored-by:", "co authored by:" etc. Ignores the
+# comment lines git appends to the message template.
+offenders=$(grep -v '^#' "$MSG_FILE" | grep -in -E '^[[:space:]]*co[-_ ]?authored[-_ ]?by[[:space:]]*:')
+
+if [ -n "$offenders" ]; then
+  err ""
+  err "COMMIT BLOCKED — co-author trailer found in the commit message:"
+  err ""
+  printf '%s\n' "$offenders" | while IFS= read -r line; do err "    $line"; done
+  err ""
+  err "  This repo does not use Co-Authored-By lines. Remove them and commit again."
+  err ""
+  fail=1
+fi
+
+# ── 2. Enforce the committing identity ───────────────────────────────────────
+# git var expands the final resolved identity, including any --author override
+# or GIT_AUTHOR_NAME/GIT_COMMITTER_NAME set for this invocation.
+author_name=$(git var GIT_AUTHOR_IDENT | sed -e 's/ <.*//')
+committer_name=$(git var GIT_COMMITTER_IDENT | sed -e 's/ <.*//')
+
+if [ "$author_name" != "$EXPECTED_NAME" ] || [ "$committer_name" != "$EXPECTED_NAME" ]; then
+  err ""
+  err "COMMIT BLOCKED — wrong identity."
+  err ""
+  err "    author    : $author_name"
+  err "    committer : $committer_name"
+  err "    expected  : $EXPECTED_NAME"
+  err ""
+  err "  Fix with:"
+  err "    git config user.name \"$EXPECTED_NAME\""
+  err ""
+  fail=1
+fi
+
+exit $fail

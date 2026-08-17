@@ -11,14 +11,32 @@ Do every step in order. Do **PART 1** before **PART 2** — the APK has to bake 
 
 ## Prerequisites
 
-Already installed on this machine:
-- Node + npm
-- JDK 17 at `/opt/homebrew/opt/openjdk@17`
-- Android SDK at `~/Library/Android/sdk`
-- `gh` CLI (GitHub)
-- `adb`, `keytool`, `xcodebuild`
+Run `npm run doctor` — it checks all of these and tells you what's missing.
 
-For every release-build shell:
+- Node + npm
+- JDK 17
+- Android SDK (`adb`, `keytool` on PATH)
+- `gh` CLI (GitHub), for publishing releases
+- macOS + Xcode **only** for local iOS builds
+
+### Windows (current dev machine)
+
+Android builds run natively. `ANDROID_HOME` is `C:\Android\Sdk`; set it once in
+System Environment Variables and add `%ANDROID_HOME%\platform-tools` to PATH.
+
+**iOS cannot be built locally on Windows.** Use EAS cloud builds instead — they build
+both platforms in one command:
+
+```bash
+npm run build:preview        # eas build --platform all --profile preview
+npm run build:production
+```
+
+An Apple Developer account ($99/yr) is required for iOS builds, including via EAS.
+Android needs no paid account.
+
+### macOS
+
 ```bash
 export JAVA_HOME=/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home
 export ANDROID_HOME=$HOME/Library/Android/sdk

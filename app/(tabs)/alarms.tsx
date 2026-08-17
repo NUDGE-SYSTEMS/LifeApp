@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch,
-  Alert, RefreshControl, TextInput,
+  Alert, RefreshControl, TextInput, Platform,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Colors, TAB_COLORS, TAB_PALETTE, radius } from '../../src/constants/theme';
@@ -74,6 +74,14 @@ function parseAppleMusicUri(input: string): string {
 const MUSIC_ICON = { spotify: '🟢', apple_music: '🎵', none: '🔕' } as const;
 const musicName = (s: Alarm['musicService']) =>
   s === 'spotify' ? 'Spotify' : s === 'apple_music' ? 'Apple Music' : 'None';
+
+// Apple Music `music://` deep links only resolve on iOS — offering them on Android
+// would just produce alarms that open nothing. Alarms saved on iOS still display
+// correctly here; only the picker is narrowed.
+const MUSIC_SERVICES: readonly Alarm['musicService'][] =
+  Platform.OS === 'ios'
+    ? (['none', 'spotify', 'apple_music'] as const)
+    : (['none', 'spotify'] as const);
 
 // Uppercase section header with the signature 3px accent bar (redesign v1).
 function SectionLabel({ children }: { children: string }) {
@@ -403,7 +411,7 @@ export default function AlarmsScreen() {
         {/* Music Service */}
         <SectionLabel>Music · optional</SectionLabel>
         <View style={styles.serviceRow}>
-          {(['none', 'spotify', 'apple_music'] as const).map(s => {
+          {MUSIC_SERVICES.map(s => {
             const sel = fService === s;
             return (
               <TouchableOpacity
