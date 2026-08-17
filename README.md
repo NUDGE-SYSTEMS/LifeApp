@@ -8,7 +8,7 @@ Open the app and see today: a single-glance Dashboard, zero-friction tap-first l
 
 **Stack:** Expo ~54 · React Native 0.81 · React 19 · Expo Router (file-based tabs) · AsyncStorage · react-native-svg · expo-notifications · expo-updates (EAS Update OTA).
 
-**Status:** v1.1.0 shipped (~70% built). Maintained by Kevin. Next: v1.2 — daily-friction fixes + auto-backup (iCloud on iOS, Android Auto Backup already wired via `plugins/withAndroidAutoBackup.js`).
+**Status:** tagged v1.1.0, but the code is ahead — a `v1.2` commit and a full redesign shipped without a version bump. Maintained by Kevin. Six of the seven v1.2 blocks are built; the app has not yet been launched on Android. See [ROADMAP.md](./ROADMAP.md).
 
 ## Development
 
@@ -41,7 +41,7 @@ ANDROID_DEVICE=<adb serial>   # only if several Android devices are attached
 DEVICE_UDID=<ios udid>        # only if several iOS devices are attached
 ```
 
-**Docs:** The full build/ship/OTA flow is in [RELEASE.md](./RELEASE.md); machine-readable contracts in [contracts/](./contracts). Full plan & spec: kept in the portfolio `planning/` workspace (not in this public repo).
+**Docs:** What ships next is in [ROADMAP.md](./ROADMAP.md); the build/ship/OTA flow is in [RELEASE.md](./RELEASE.md); machine-readable contracts in [contracts/](./contracts).
 
 ## License
 
