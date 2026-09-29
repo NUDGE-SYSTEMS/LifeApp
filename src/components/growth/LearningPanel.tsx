@@ -223,8 +223,14 @@ export function LearningPanel() {
           </>
         ) : (
           <View style={styles.weekendBanner}>
-            <Text style={{ fontSize: 30 }}>{dow === 6 ? '🎯' : '🔬'}</Text>
-            <Text style={styles.weekendText}>{dow === 6 ? 'Saturday: Focus on Skills!' : 'Sunday: Research Work (1:30–3:30 PM)'}</Text>
+            <Text style={{ fontSize: 30 }}>{dow === 6 ? '🎯' : dow === 0 ? '🔬' : '📚'}</Text>
+            <Text style={styles.weekendText}>
+              {dow === 6
+                ? 'Saturday: Focus on Skills!'
+                : dow === 0
+                  ? 'Sunday: Research Work (1:30–3:30 PM)'
+                  : `No rotation set for ${DAY_NAMES[dow]} — add one in Manage.`}
+            </Text>
           </View>
         )}
       </Card>

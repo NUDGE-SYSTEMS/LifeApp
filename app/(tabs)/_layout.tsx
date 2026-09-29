@@ -115,11 +115,11 @@ export default function TabLayout() {
           tabBarActiveTintColor: TAB_COLORS.settings,
         }}
       />
-      {/* Hidden routes */}
-      <Tabs.Screen name="analytics" options={{ href: null }} />
-      <Tabs.Screen name="journal" options={{ href: null }} />
-      <Tabs.Screen name="finance" options={{ href: null }} />
-      <Tabs.Screen name="schedule" options={{ href: null }} />
+      {/* Hidden routes — reachable from the Dashboard "Jump To" row, not the tab bar.
+          Each still needs a title, or expo-router falls back to the lowercase route name. */}
+      <Tabs.Screen name="analytics" options={{ href: null, title: 'Analytics' }} />
+      <Tabs.Screen name="journal" options={{ href: null, title: 'Journal' }} />
+      <Tabs.Screen name="finance" options={{ href: null, title: 'Finance' }} />
       <Tabs.Screen name="alarms" options={{ href: null, title: 'Alarms', headerShown: true }} />
     </Tabs>
   );

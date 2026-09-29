@@ -288,7 +288,9 @@ export default function AlarmsScreen() {
           <Text style={styles.infoIcon}>⏰</Text>
         </View>
         <Text style={styles.infoText}>
-          Alarms ring as a notification. Tap it to instantly open your chosen Spotify or Apple Music track.
+          {Platform.OS === 'ios'
+            ? 'Alarms ring as a notification. Tap it to instantly open your chosen Spotify or Apple Music track.'
+            : 'Alarms ring as a notification. Tap it to instantly open your chosen Spotify track.'}
         </Text>
       </View>
 

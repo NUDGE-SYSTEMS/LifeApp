@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, Alert, Share, RefreshControl } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity, Switch, Alert, Share, RefreshControl, Platform } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Colors, DEFAULT_REMINDER_SETTINGS, DEFAULT_GOALS, DEFAULT_HABITS, radius } from '../../src/constants/theme';
 import { getData, setData, exportAllData, getAllKeys, removeData } from '../../src/utils/storage';
@@ -224,7 +224,9 @@ export default function SettingsScreen() {
           <IconTile emoji="⏰" color={Colors.accentLight} />
           <View style={styles.rowText}>
             <Text style={styles.rowLabel}>Alarms</Text>
-            <Text style={styles.rowDesc}>Wake-up alarms · Spotify & Apple Music</Text>
+            <Text style={styles.rowDesc}>
+              {Platform.OS === 'ios' ? 'Wake-up alarms · Spotify & Apple Music' : 'Wake-up alarms · Spotify'}
+            </Text>
           </View>
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>

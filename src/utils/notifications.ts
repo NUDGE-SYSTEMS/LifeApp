@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
-import { getData, setData } from './storage';
+import { getData } from './storage';
 import { DEFAULT_REMINDER_SETTINGS } from '../constants/theme';
 
 // ── Android notification channels ────────────────────────────────────────────
@@ -25,6 +25,10 @@ export function ensureAndroidChannels(): Promise<void> {
         sound: 'default',
         vibrationPattern: [0, 400, 200, 400],
         lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        // Android only honours this once the user grants "Do Not Disturb access"
+        // to the app in system settings. Verified on an emulator: without that
+        // grant the channel reports mBypassDnd=false, so alarms are still muted
+        // by DND. Requesting it is harmless; do not treat it as guaranteed.
         bypassDnd: true,
         enableVibrate: true,
         showBadge: false,
@@ -113,18 +117,6 @@ export async function cancelAlarmNotifs(notifIds: string[]): Promise<void> {
   }
 }
 
-// After cancelling all reminders (e.g. from settings), re-schedule enabled alarms
-async function rescheduleEnabledAlarms(): Promise<void> {
-  const alarms = await getData<any[]>('alarms', []);
-  let changed = false;
-  for (const alarm of alarms) {
-    if (!alarm.enabled) continue;
-    alarm.notifIds = await scheduleAlarmNotif(alarm);
-    changed = true;
-  }
-  if (changed) await setData('alarms', alarms);
-}
-
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -136,7 +128,11 @@ Notifications.setNotificationHandler({
 });
 
 export async function requestPermissions(): Promise<boolean> {
-  if (!Device.isDevice) return false;
+  // Local notifications work on Android emulators, so only bail out on iOS
+  // simulators — those genuinely can't deliver them. Guarding on Device.isDevice
+  // alone made every reminder unverifiable on an Android emulator, and reported
+  // "Permission Denied" even when POST_NOTIFICATIONS was granted.
+  if (!Device.isDevice && Platform.OS !== 'android') return false;
   // Channels must exist before the Android 13+ POST_NOTIFICATIONS prompt so the
   // system settings page shows real categories instead of an empty list.
   await ensureAndroidChannels();
@@ -146,9 +142,24 @@ export async function requestPermissions(): Promise<boolean> {
   return status === 'granted';
 }
 
+// ── Reminder helpers ─────────────────────────────────────────────────────────
+// Reminders and alarms are independent: each side only ever cancels its own
+// notifications. Reminders are tagged data.type 'reminder'; alarms 'alarm'.
+
+/** Cancel every scheduled reminder, leaving alarms untouched. */
+async function cancelReminderNotifs(): Promise<void> {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  for (const n of scheduled) {
+    // Anything not tagged as an alarm is a reminder — installs from before the
+    // 'reminder' tag existed scheduled reminders with no data at all.
+    if (n.content.data?.type === 'alarm') continue;
+    await Notifications.cancelScheduledNotificationAsync(n.identifier).catch(() => {});
+  }
+}
+
 async function daily(h: number, m: number, title: string, body: string) {
   await Notifications.scheduleNotificationAsync({
-    content: { title, body, sound: true },
+    content: { title, body, sound: true, data: { type: 'reminder' } },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DAILY,
       hour: h,
@@ -166,7 +177,7 @@ function hm(timeStr: string): [number, number] {
 export async function scheduleAllReminders(): Promise<boolean> {
   const granted = await requestPermissions();
   if (!granted) return false;
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  await cancelReminderNotifs();
 
   const s = await getData('reminderSettings', DEFAULT_REMINDER_SETTINGS);
 
@@ -236,16 +247,11 @@ export async function scheduleAllReminders(): Promise<boolean> {
     "Put the screens down. You did great today."
   );
 
-  // Restore alarms that were wiped by cancelAll above
-  await rescheduleEnabledAlarms();
-
   return true;
 }
 
 export async function cancelAllReminders(): Promise<void> {
-  await Notifications.cancelAllScheduledNotificationsAsync();
-  // Restore alarms
-  await rescheduleEnabledAlarms();
+  await cancelReminderNotifs();
 }
 
 export async function sendTestNotification(): Promise<void> {
