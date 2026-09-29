@@ -46,7 +46,6 @@ export default function RootLayout() {
       <StatusBar style="light" backgroundColor={Colors.bg} translucent={false} />
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.bg } }}>
         <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="timer" options={{ presentation: 'modal', headerShown: false, animation: 'slide_from_bottom' }} />
       </Stack>
     </>
   );
