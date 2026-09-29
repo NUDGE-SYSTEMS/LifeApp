@@ -20,10 +20,13 @@ The single source of truth for what ships next, what's planned, and what's been 
 - **Owner:** Kevin (`kevinpatildxd`), since 2026-08-17. Developed on Windows.
 - **Targets:** Android and iOS, equally. Android is being brought up first because it's the
   device on hand; the iOS pass follows. See §1.
-- **Current release:** v1.1.0 tagged. **The code is ahead of the version number** — a `v1.2`
-  commit and a full redesign shipped without a version bump. See §3.
+- **Current release:** `app.json` / `package.json` now say **1.2.0** (bumped 2026-08-21).
+  Still needs a tag and a cut release. Note `runtimeVersion.policy` is `appVersion`, so this
+  bump means a **native rebuild** — OTA won't reach 1.1.0 installs.
 - **Stack:** Expo ~54 + React Native 0.81 + React 19 + Expo Router + AsyncStorage (no backend)
-- **Tabs (9):** Dashboard · Schedule · Fitness · Growth · Journal · Finance · Analytics · Alarms · Settings
+- **Screens (9), tab bar (5):** the bar holds Dashboard · Tasks · Fitness · Growth · Settings.
+  Journal, Finance, Analytics and Alarms are `href: null` routes reached from the Dashboard's
+  "Jump To" row. *(Corrected 2026-08-21 — this line used to claim nine tabs.)*
 - **Distribution:**
   - Android: signed APK on GitHub Releases, OTA via EAS Update channel `production`
   - iOS: dev / Xcode archive only — **cannot be built from the current Windows machine**; use EAS cloud
@@ -70,13 +73,39 @@ practical consequences:
 ### 2.1 🔴 Android bring-up (blocking)
 
 Nothing below this line can be trusted until this is done.
+**Half of it is now done — see [AUDIT.md](./AUDIT.md) for the device-verified record.**
 
-- [ ] 🔴 First Android build on a real device — `npm run android` (15–20 min first run)
-- [ ] 🔴 Smoke-test all 9 tabs on Android — they have only ever run on iOS
-- [ ] 🔴 Verify alarms actually fire, with sound, on the `alarms` channel
-- [ ] 🔴 Verify the 11 daily reminders fire on the `reminders` channel
+- [x] 🔴 First Android build — done 2026-08-21 on emulator `gami_pixel7`. 31m 27s cold
+      (one-time Gradle dist + ~1 GB NDK), **1m 22s incremental** after.
+- [x] 🔴 Smoke-test all 9 screens on Android — all render, **zero JS errors**. Found and fixed
+      four bugs in the process (AUDIT F1, F4, F5, F6).
+- [ ] 🔴 Verify alarms actually fire, with sound, on the `alarms` channel — *channel verified
+      (importance 5/MAX); firing still unobserved. Wants a real phone.*
+- [x] 🔴 Verify the 11 daily reminders fire on the `reminders` channel — 11 scheduled and
+      confirmed in `dumpsys alarm`. Required fixing AUDIT F1 first, which had made **all**
+      notifications impossible on any emulator.
 - [ ] 🟠 Verify Android Auto Backup round-trips: log data → uninstall → reinstall → data returns
 - [ ] 🟠 Verify the release APK path end-to-end (`npm run android:release`, then §5)
+
+### 2.1b 🟠 Real alarms — separate from reminders (decided 2026-09-29)
+
+Reminders and Alarms are two features that stay independent. Reminders are the 11 daily
+nudges — plain notifications, where a late arrival is acceptable. Alarms have to wake you up,
+on **both** platforms:
+
+- [x] Decouple the schedules — reminders no longer cancel/rebuild alarms (2026-09-29, `notifications.ts`)
+- [ ] Pick the mechanism per platform (exact scheduling + ring-until-dismissed + lock screen).
+      Research 2026-09-29 (unverified, re-check before adopting): lead candidate
+      `react-native-alarm-scheduler` — Android `setAlarmClock` + ringing service + full-screen UI,
+      iOS AlarmKit (26+), Expo config plugin; but new (May 2026) and single-maintainer. Notifee is
+      archived (2026-04); its maintained fork `react-native-notify-kit` is the safer Android-only
+      fallback. iOS < 26 can only get a time-sensitive notification (≤30 s sound, obeys silent switch).
+- [ ] Optional: add `USE_EXACT_ALARM` so the plain reminders stop drifting by up to an hour —
+      expo-notifications already schedules exactly when that permission is present
+- [ ] Android: exact alarm (`setAlarmClock`-class) + full-screen ringing screen
+- [ ] iOS: equivalent (AlarmKit on iOS 26+, with a fallback for older iOS)
+- [ ] DND bypass (AUDIT F3) — only real alarms need it; guide the user through granting access
+- [ ] Verify on a real Android phone and via an EAS iOS build
 
 ### 2.2 Done in the 2026-08-17 cross-platform pass
 
@@ -84,7 +113,9 @@ Shipped in commit `aa2a1ec`. Code-complete, **device-untested** — that's §2.1
 
 - [x] Windows dev tooling — `scripts/` replaces the macOS-only `dev.sh`/`run.sh`/`release.sh`
 - [x] `npm run doctor` — checks JDK, Android SDK, adb, device, LAN IP
-- [x] Android notification channels — `alarms` (MAX, bypasses DND) + `reminders` (HIGH).
+- [x] Android notification channels — `alarms` (MAX) + `reminders` (HIGH). **The DND bypass does
+      not actually work:** verified 2026-08-21, the channel reports `mBypassDnd=false` because
+      Android only honours it after the user grants DND access. See [AUDIT.md](./AUDIT.md) F3.
       Without these every alarm and reminder was silent on Android 8+.
 - [x] Channels created at boot and before the Android 13+ permission prompt
 - [x] Apple Music hidden in the alarm picker on Android — `music://` resolves to nothing there
@@ -105,7 +136,7 @@ The 2026-05-08 plan had 7 blocks. **Six are already built** (verified in code 20
 | 4 | Backlog carry / dismiss + any-day catchup | [x] | `carryBacklog` / `dismissBacklog` in `tasks.tsx`, 7-day lookback |
 | 5 | Dashboard pass — rings, mood, shortcuts | [x] | `RingStack`, mood writes to `journal_{date}.mood`, `router.push` shortcut row |
 | 6 | **Auto-backup on background** | [~] | **Android done** via `plugins/withAndroidAutoBackup.js`; **iOS iCloud not built** |
-| 7 | Pomodoro cleanup + Growth merge | [~] | Growth merge done (`growth.tsx` + `growth/` panels); `app/timer.tsx` is now unreachable dead code |
+| 7 | Pomodoro cleanup + Growth merge | [x] | Growth merge done (`growth.tsx` + `growth/` panels); `app/timer.tsx` deleted 2026-08-21 |
 
 Five of seven are done on both platforms. Block 6 is the one that is genuinely half-built —
 Android has auto-backup, iOS does not — so **v1.2 is complete on Android and one feature short
@@ -113,24 +144,27 @@ on iOS**. The remaining slices:
 
 - [ ] 🟠 iOS iCloud auto-backup — JSON to `iCloud Drive/LifeOS/backup-latest.json` on background,
       auto-restore on fresh install, no UI. Still owed; it closes the last v1.2 gap on iOS.
-- [ ] 🟠 Decide `app/timer.tsx` — delete it or wire it back up (§3)
+- [x] 🟠 Decide `app/timer.tsx` — deleted 2026-08-21 (§3)
 
 ---
 
 ## 3. Housekeeping — small, do them soon
 
-- [ ] 🔴 Bump version to `1.2.0` in `app.json` + `package.json`, tag, and cut a release.
-      The version has said `1.1.0` through a `v1.2` commit and a full redesign.
-- [ ] 🟠 Decide CNG vs committed `ios/`. `ios/` is tracked while `android/` is generated, so
-      `expo-doctor` warns that **EAS iOS builds skip `app.json`'s `plugins`, `icon`, `splash`
-      and `ios` config**. Change the icon today and Android gets it, iOS doesn't. All 23 tracked
-      `ios/` files are stock prebuild output with no hand edits, so gitignoring it is safe — the
-      cost is that future Xcode-level tweaks must go through config plugins.
-- [ ] 🟠 Remove `react-native-chart-kit`. Nothing imports it; the redesign moved everything to
-      `react-native-svg`. Only comments still mention it.
-- [ ] 🟠 Delete or restore `app/timer.tsx`. 275 lines, route registered in `app/_layout.tsx`,
-      but nothing navigates to it — the redesign removed the header entry points. Dead either way
-      right now.
+- [~] 🔴 Bump version to `1.2.0` in `app.json` + `package.json`, tag, and cut a release.
+      **Both files bumped 2026-08-21.** Tag and release still owed.
+- [~] 🟠 CNG for `ios/` — **decided 2026-09-29: generate it, don't commit it.** `ios/` is now
+      gitignored like `android/`, so EAS runs `expo prebuild` and iOS finally gets `app.json`'s
+      `plugins`, `icon`, `splash` and `ios` config. (The committed copy was stale — its
+      `Info.plist` still said version `1.0.0`.) `expo prebuild` refuses iOS on Windows, so the
+      first proof is an `npm run build:preview` iOS build. **Yaksi to review this later**; the
+      old `ios/` is in git history (`518dd97`) if it ever needs restoring. Xcode-level tweaks
+      now go through config plugins.
+- [x] 🟠 Remove `react-native-chart-kit` — uninstalled 2026-08-21. Three comments still name it;
+      they're history, not imports.
+- [x] 🟠 Delete `app/timer.tsx` — deleted 2026-08-21 along with its `Stack.Screen` in
+      `app/_layout.tsx`. Nothing navigated to it and no `pomodoro` reference survives outside it.
+      This follows the 2026-05-08 kill-list decision. Recoverable from git if the Mind
+      meditation timer (§6) ever wants it back.
 - [ ] 🟡 Re-check `RELEASE.md` PART 2/3 against a real Windows Android build; the gradle and
       keystore steps have only ever been run on macOS.
 
@@ -144,11 +178,14 @@ Android is the half being built first.
 
 ### Android gaps
 
-- [ ] 🟠 **Alarms are inexact.** `expo-notifications` doesn't request `SCHEDULE_EXACT_ALARM`, so
-      Android 12+ schedules them inexactly and Doze can delay them by minutes. A notification
-      also can't take over the screen the way a real alarm app does. If Alarms is meant to
-      actually wake you up, this needs a different mechanism — decide whether the tab is a
-      reminder or an alarm.
+- [ ] 🟠 **Alarms are inexact — measured at a full hour.** `expo-notifications` doesn't request
+      `SCHEDULE_EXACT_ALARM`, so Android 12+ schedules them inexactly. Verified 2026-08-21:
+      `dumpsys alarm` reports **`window=+1h0m0s0ms`** on all 11 reminders, so a 06:30 gym nudge
+      may legitimately fire at 07:30 — not "minutes", as this line used to say. Doze can extend
+      it further. A notification also can't take over the screen the way a real alarm app does.
+      **Decided 2026-09-29: keep both, as separate features** — Reminders stay notifications;
+      Alarms become real wake-up alarms (exact, rings until dismissed, lock-screen) on Android
+      *and* iOS. Mechanism still to pick — see §2 "Real alarms". See [AUDIT.md](./AUDIT.md) F2.
 - [ ] 🟡 Alarm music is Spotify-only on Android. The roadmap's "better alarm music picker"
       (§6 Notifications) is now the fix for this, not a nice-to-have.
 - [ ] 🟡 Confirm edge-to-edge rendering and the status/navigation bars look right — Expo 54
@@ -292,7 +329,8 @@ Likely a third sub-section inside Growth.
 Could live as a Dashboard card or a Journal section.
 - [ ] 🟠 Meditation / breathwork log — duration + technique
 - [ ] 🟠 Streak counter
-- [ ] 🟡 Optional in-app timer — the one good reason to keep `app/timer.tsx` (§3)
+- [ ] 🟡 Optional in-app timer — would be a fresh build now; `app/timer.tsx` was deleted
+      2026-08-21, but its Pomodoro ring/SVG is recoverable from git history if useful
 - [ ] 🟡 Mood pre/post comparison
 
 ### 💰 Finance
@@ -359,7 +397,7 @@ Could live as a Dashboard card or a Journal section.
       dated bug (`e043e70`, UTC/local mismatch skipping days).
 
 ### 🪦 Kill list
-- [~] 🟠 Pomodoro — entry points removed, `app/timer.tsx` still in the tree *(§3)*
+- [x] 🟠 Pomodoro — entry points removed, and `app/timer.tsx` deleted 2026-08-21. Fully gone.
 - [-] Focus mode
 - [-] Dynamic Island Pomodoro
 
@@ -446,8 +484,11 @@ Conscious "not now" calls. Move them up if context changes.
 | **2026-08-17** | **iOS builds go through EAS cloud** | No Mac available. Not a reason to drop iOS support. |
 | **2026-08-17** | **No `Co-Authored-By` trailers; commits authored as `kevinpatildxd`** | Enforced by `.githooks/commit-msg`. |
 | **2026-08-17** | iCloud backup stays 🟠 rather than 🔴 | Not a demotion of iOS — the risk it guards against is simply not testable until there's an iOS device. It is owed, and §4 tracks it. |
+| **2026-09-29** | **Keep both Reminders and Alarms — as separate features** | Reminders = daily nudges (notifications, a little late is fine). Alarms = real wake-up alarms. Originally the Settings copy called them "Wake-up alarms". |
+| **2026-09-29** | **Reminders and Alarms never touch each other's schedules** | Toggling reminders used to cancel *every* notification and rebuild the alarms. Each side now only cancels its own (tagged `data.type`). |
+| **2026-09-29** | **`ios/` is generated (CNG), not committed** — pending Yaksi's review | Committed `ios/` made EAS skip `app.json` plugins/icon/splash on iOS. Must keep building on iOS. |
 | **2026-08-17** | Design pass marked done | The `aac82a3` redesign delivered what the 2026-05-08 "deferred" entry described. |
 
 ---
 
-*Last updated: 2026-08-17*
+*Last updated: 2026-09-29*
