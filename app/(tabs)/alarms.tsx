@@ -11,6 +11,7 @@ import { requestPermissions, scheduleAlarmNotif, cancelAlarmNotifs } from '../..
 import { Button } from '../../src/components/Button';
 import { ModalSheet } from '../../src/components/ModalSheet';
 import { FormField } from '../../src/components/FormField';
+import { AlarmSpike } from '../../src/components/AlarmSpike';
 
 const C = TAB_COLORS.settings;
 const P = TAB_PALETTE.settings;
@@ -281,6 +282,8 @@ export default function AlarmsScreen() {
       showsVerticalScrollIndicator={false}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C} />}
     >
+      {__DEV__ && <AlarmSpike />}
+
       {/* Info banner */}
       <View style={styles.infoBanner}>
         <View style={styles.hairline} pointerEvents="none" />

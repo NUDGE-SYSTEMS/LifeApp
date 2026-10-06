@@ -25,3 +25,15 @@ ship/OTA flow.
 - Anything platform-bound (deep links, notification channels, exact alarms) needs a
   `Platform.OS` branch and has to work on both.
 - `npm run doctor` checks the local toolchain.
+
+## Session handoff
+
+`HANDOFF.md` (local, gitignored) carries state between sessions so an old session never needs
+resuming. Hooks in `.claude/settings.local.json` run `scripts/handoff.mjs`: at session start it
+refreshes the file and loads it into context; after every reply it refreshes quietly.
+
+- The **auto** section (git state, open tracker tasks, latest tracker notes) is regenerated —
+  never edit it by hand.
+- The **notes** section (between `<!-- notes:start -->` and `<!-- notes:end -->`) is Claude's
+  job: keep "Where we stopped", "Next step" and the how-tos current as work happens, not only
+  at the end — a session can die mid-task (it did on 2026-09-29, out of memory).
